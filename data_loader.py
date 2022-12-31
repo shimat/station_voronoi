@@ -13,7 +13,7 @@ from pyproj import Transformer
 def get_station_locations(file_name: str) -> npt.NDArray[np.float64]:
     with open(file_name, "r", encoding="utf-8-sig", newline="") as file:
         csv_reader = csv.reader(file)
-        return np.array([(float(row[1]), float(row[2])) for row in csv_reader])
+        return np.array([(float(row[1]), float(row[2])) for row in csv_reader if not row[0].startswith("#")])
 
 
 def get_all_station_locations(dir_name: str) -> npt.NDArray[np.float64]:

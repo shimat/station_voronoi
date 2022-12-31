@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from data_loader import get_all_station_locations_transformed, get_pref_contour_transformed
 from transformers import get_transformer
 
-IMAGE_SIZE = 1000
+IMAGE_SIZE = 2000
 
 
 def show_plot(data: Iterable[tuple[Any, Any]]) -> None:
@@ -33,16 +33,19 @@ def voronoi(points: npt.NDArray[np.float64], pref_contour: npt.NDArray[np.float6
 
     img = np.zeros((IMAGE_SIZE+100, IMAGE_SIZE+100, 3), np.uint8)
     for p in centers:
-        cv2.drawMarker(img, (p+50).astype(int), (0, 0, 255), thickness=2)
+        cv2.drawMarker(img, (p+50).astype(int), (0, 0, 255), thickness=3)
     #print(facets)
-    cv2.polylines(img, [(f+50).astype(int) for f in facets], True, (255, 255, 255), thickness=1)
+    cv2.polylines(img, [(f+50).astype(int) for f in facets], True, (0, 255, 255), thickness=2)
 
-    print(pref_contour)
-    print(type(pref_contour))
-    cv2.polylines(img, [[[int(f[0]), int(f[1])] for f in pref_contour.astype(int)]], True, (255, 255, 255), thickness=1)
+    cv2.polylines(img, [np.array([(f+50).astype(int) for f in pref_contour])], True, (255, 255, 255), thickness=4)
+    #img_mask = np.zeros_like(img)
+    #cv2.fillPoly(img_mask, [np.array([(f+50).astype(int) for f in pref_contour])], (255, 255, 255))
+    #img = cv2.bitwise_and(img, img_mask)
     img = cv2.flip(img, 0)
+    #img_mask = cv2.flip(img_mask, 0)
 
     st.image(img, channels="BGR", caption="Voronoi")
+    #st.image(img_mask, channels="BGR", caption="Mask")
 
 transformer = get_transformer("北海道", "")
 scaler = MinMaxScaler((0, IMAGE_SIZE))
@@ -66,9 +69,18 @@ voronoi(station_locations, pref_contour)
 img = np.full((IMAGE_SIZE+100, IMAGE_SIZE+100, 1), 255, dtype=np.uint8)
 for p in station_locations:
     cv2.rectangle(img, (p+50).astype(int), (p+51).astype(int), (0, 0, 0), thickness=2)
-img = cv2.flip(img, 0)
 dist = cv2.distanceTransform(img, cv2.DIST_L2, 5)
 
+mask = np.zeros_like(dist, dtype=np.uint8)
+cv2.fillPoly(mask, [np.array([(f+50).astype(int) for f in pref_contour])], (255, 255, 255))
+dist = dist * (mask / 255)
+
+_, maxVal, _, maxLoc = cv2.minMaxLoc(dist)
+
 cv2.normalize(dist, dist, 0, 1.0, cv2.NORM_MINMAX)
-dist = cv2.applyColorMap((dist*255).astype(np.uint8), cv2.COLORMAP_JET)
-st.image(dist, caption="distance")
+dist_u8 = cv2.applyColorMap((dist*255).astype(np.uint8), cv2.COLORMAP_HOT)
+
+cv2.drawMarker(dist_u8, maxLoc, (0, 0, 255), markerSize=30, thickness=5)
+
+dist_u8 = cv2.flip(dist_u8, 0)
+st.image(dist_u8, channels="BGR", caption="distance")
