@@ -28,7 +28,7 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
         case "北海道":
             return filter(lambda p: re.search(r"^北海道*|^道南*", p.name), paths)
         case "本州":
-            return filter(lambda p: re.search(r"^東日本*", p.name), paths)
+            return filter(lambda p: re.search(r"^東日本*|^西日本旅客鉄道*", p.name), paths)
         case "四国":
             return filter(lambda p: re.search(r"^四国*|^阿佐海岸*|^土佐*|^伊予*|^高松琴平*", p.name), paths)
         case "九州":
