@@ -44,6 +44,7 @@ NUMBER_17_CITIES = {
     "北大東村", "南大東村"
 }
 
+
 def get_transformer(pref: str, city: str) -> Transformer:
     """
     自治体名から、使うべきpyproj.Transformerを返す
