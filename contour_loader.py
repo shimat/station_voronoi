@@ -15,7 +15,7 @@ def get_pref_contour(pref_name: str, transformer: Transformer) -> npt.NDArray[np
     if not feature:
         raise KeyError
 
-    coordinates = list(itertools.chain.from_iterable(feature["geometry"]["coordinates"]))
+    coordinates = itertools.chain.from_iterable(feature["geometry"]["coordinates"])
     longest = sorted(coordinates, key=lambda c: len(c))[-1]
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in longest])
 
@@ -29,18 +29,17 @@ def get_island_contour(name: str, transformer: Transformer) -> npt.NDArray[np.fl
     for s in shapes:
         merged_shape = merged_shape.union(s)
 
-    coordinates = list(list(poly.exterior.coords) for poly in merged_shape.geoms)
+    coordinates = [list(poly.exterior.coords) for poly in merged_shape.geoms]
     longest = sorted(coordinates, key=lambda c: len(c))[-1]
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in longest])
 
 
-def get_main_islands_contours(transformer: Transformer) -> npt.NDArray[np.float64]:
-    shapes = (
+def get_main_islands_contours(transformer: Transformer) -> tuple[npt.NDArray[np.float64], ...]:
+    return (
         get_island_contour("北海道", transformer),
         get_island_contour("本州", transformer),
         get_island_contour("四国", transformer),
         get_island_contour("九州", transformer))
-    return np.vstack(shapes)
 
 
 def _collect_island_shapes(name: str, gj: dict[str, Any]) -> Iterable[shapely.geometry.shape]:

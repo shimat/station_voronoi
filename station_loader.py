@@ -25,14 +25,19 @@ def _load_station_csv(file_name: str) -> npt.NDArray[np.float64]:
 def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
     paths = Path("csv").glob("*.csv")
     match island_name:
+        case "全国":
+            return paths
         case "北海道":
-            return filter(lambda p: re.search(r"^北海道*|^道南*", p.name), paths)
+            return filter(lambda p: re.search(r"^北海道.+|^道南.+", p.name), paths)
         case "本州":
-            return filter(lambda p: re.search(r"^東日本*|^西日本旅客鉄道*", p.name), paths)
+            ret = set(paths)
+            for n in ("北海道", "四国", "九州"):
+                ret -= set(_find_csv_files_in_island(n))
+            return ret
         case "四国":
-            return filter(lambda p: re.search(r"^四国*|^阿佐海岸*|^土佐*|^伊予*|^高松琴平*", p.name), paths)
+            return filter(lambda p: re.search(r"^四国.+|^阿佐海岸.+|^土佐.+|^伊予.+|^高松琴平.+", p.name), paths)
         case "九州":
-            return filter(lambda p: re.search(r"^九州*|^西日本鉄道*|^熊本*|^南阿蘇*|^平成筑豊*|^島原*|^肥薩*|^くま川*|^甘木*|^松浦*", p.name), paths)
+            return filter(lambda p: re.search(r"^九州.*|^西日本鉄道.+|^熊本.+|^南阿蘇.+|^平成筑豊.+|^島原.+|^肥薩.+|^くま川.+|^甘木.+|^松浦.+", p.name), paths)
         case "沖縄本島":
             raise ValueError(f"Not supported island name: {island_name}")
         case _:

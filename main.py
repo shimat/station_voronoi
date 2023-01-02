@@ -1,11 +1,11 @@
 import cv2
+import itertools
 import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from collections import deque
 from typing import Any, Iterable
-from sklearn.preprocessing import MinMaxScaler
 from contour_loader import get_pref_contour, get_island_contour, get_main_islands_contours
 from station_loader import get_station_locations_in_area
 from transformers import get_transformer
@@ -24,15 +24,22 @@ def show_plot(data: Iterable[tuple[Any, Any]]) -> None:
     st.pyplot(fig)
 
 
-def normalize(
-    island_contours: npt.NDArray[np.float64],
-    station_locations: npt.NDArray[np.float64]
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    # combi = np.vstack((island_contours, station_locations))
-    # combi_norm = scaler.fit_transform(combi)
-    # island_contours, station_locations = np.vsplit(combi_norm, [len(island_contours)])
+def show_islands_and_stations(
+    station_locations: npt.NDArray[np.float64],
+    island_contours: tuple[npt.NDArray[np.float64], ...],
+) -> None:
+    flatten_island_contours = np.vstack(island_contours)
+    show_plot([
+        (flatten_island_contours[:, 0], flatten_island_contours[:, 1]),
+        (station_locations[:, 0], station_locations[:, 1])])
 
-    combi = np.vstack((island_contours, station_locations))
+
+def normalize(
+    station_locations: npt.NDArray[np.float64],
+    island_contours: tuple[npt.NDArray[np.float64], ...]
+) -> tuple[tuple[npt.NDArray[np.float64], ...], npt.NDArray[np.float64]]:
+
+    combi = np.vstack((station_locations, *island_contours))
 
     x, y = combi.T
     xmin, xmax, _, _ = cv2.minMaxLoc(x)
@@ -46,12 +53,17 @@ def normalize(
     normy = ((y-ymin)/scale) * (IMAGE_SIZE)
     combi_norm = np.vstack((normx, normy)).T
 
-    island_contours, station_locations = np.vsplit(combi_norm, [len(island_contours)])
+    ret_station_locations, all_island_contours = np.vsplit(combi_norm, [len(station_locations)])
+    sections = list(itertools.accumulate(len(c) for c in island_contours))[:-1]
+    ret_island_contours = np.vsplit(all_island_contours, sections)
 
-    return island_contours, station_locations
+    return ret_island_contours, ret_station_locations
 
 
-def voronoi(points: npt.NDArray[np.float64], island_contours: npt.NDArray[np.float64]) -> None:
+def voronoi(
+    points: npt.NDArray[np.float64],
+    island_contours: Iterable[npt.NDArray[np.float64]]
+) -> None:
     subdiv = cv2.Subdiv2D((0, 0, IMAGE_SIZE+1, IMAGE_SIZE+1))
     for p in points:
         subdiv.insert((p[0], p[1]))
@@ -63,24 +75,33 @@ def voronoi(points: npt.NDArray[np.float64], island_contours: npt.NDArray[np.flo
         cv2.drawMarker(img, (p+50).astype(int), (0, 0, 255), thickness=3)
     cv2.polylines(img, [(f+50).astype(int) for f in facets], True, (0, 255, 255), thickness=2)
 
-    cv2.polylines(img, [np.array([(f+50).astype(int) for f in island_contours])], True, (255, 255, 255), thickness=4)
+    i = 0
+    for one_island in island_contours:
+        cv2.polylines(img, [np.array([(f+50).astype(int) for f in one_island])], True, (255, 255, 255), thickness=4)
+        i += 1
+        if i > 1:
+            break
     img = cv2.flip(img, 0)
 
     st.image(img, channels="BGR", caption="Voronoi")
     cv2.imwrite("voronoi.png", img)
 
 
-def distance_transform(points: npt.NDArray[np.float64], island_contours: npt.NDArray[np.float64]) -> None:
+def distance_transform(
+    station_locations: npt.NDArray[np.float64], 
+    island_contours: tuple[npt.NDArray[np.float64], ...]
+) -> None:
     img = np.full((IMAGE_SIZE+100, IMAGE_SIZE+100, 1), 255, dtype=np.uint8)
     for p in station_locations:
         cv2.rectangle(img, (p+50).astype(int), (p+51).astype(int), (0, 0, 0), thickness=2)
     dist = cv2.distanceTransform(img, cv2.DIST_L2, 5)
 
     mask = np.zeros_like(dist, dtype=np.uint8)
-    cv2.fillPoly(mask, [np.array([(f+50).astype(int) for f in island_contours])], (255, 255, 255))
+    for one_island in island_contours:
+        cv2.fillPoly(mask, [np.array([(f+50).astype(int) for f in one_island])], (255, 255, 255))
     dist = dist * (mask / 255)
 
-    _, maxVal, _, maxLoc = cv2.minMaxLoc(dist)
+    _, _, _, maxLoc = cv2.minMaxLoc(dist)
 
     cv2.normalize(dist, dist, 0, 1.0, cv2.NORM_MINMAX)
     dist_u8 = cv2.applyColorMap((dist*255).astype(np.uint8), cv2.COLORMAP_HOT)
@@ -95,32 +116,25 @@ tab_hokkaido, tab_honshu, tab_shikoku, tab_kyushu, tab_4islands = st.tabs(("北�
 
 with tab_hokkaido:
     transformer = get_transformer("北海道", "")
-    scaler = MinMaxScaler((0, IMAGE_SIZE))
 
-    island_contours = get_pref_contour("北海道", transformer)
+    island_contours = (get_pref_contour("北海道", transformer),)
     station_locations = get_station_locations_in_area("北海道", transformer)
 
-    island_contours, station_locations = normalize(island_contours, station_locations)
-    show_plot([
-        (island_contours[:, 0], island_contours[:, 1]),
-        (station_locations[:, 0], station_locations[:, 1])])
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
 
     voronoi(station_locations, island_contours)
-
     distance_transform(station_locations, island_contours)
 
 
 with tab_honshu:
     transformer = get_transformer("長野県", "")
-    scaler = MinMaxScaler((0, IMAGE_SIZE))
 
-    island_contours = get_island_contour("本州", transformer)
+    island_contours = (get_island_contour("本州", transformer),)
     station_locations = get_station_locations_in_area("本州", transformer)
 
-    island_contours, station_locations = normalize(island_contours, station_locations)
-    show_plot([
-        (island_contours[:, 0], island_contours[:, 1]),
-        (station_locations[:, 0], station_locations[:, 1])])
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
 
     voronoi(station_locations, island_contours)
     distance_transform(station_locations, island_contours)
@@ -128,15 +142,12 @@ with tab_honshu:
 
 with tab_shikoku:
     transformer = get_transformer("高知県", "")
-    scaler = MinMaxScaler((0, IMAGE_SIZE))
 
-    island_contours = get_island_contour("四国", transformer)
+    island_contours = (get_island_contour("四国", transformer),)
     station_locations = get_station_locations_in_area("四国", transformer)
 
-    island_contours, station_locations = normalize(island_contours, station_locations)
-    show_plot([
-        (island_contours[:, 0], island_contours[:, 1]),
-        (station_locations[:, 0], station_locations[:, 1])])
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
 
     voronoi(station_locations, island_contours)
     distance_transform(station_locations, island_contours)
@@ -144,16 +155,13 @@ with tab_shikoku:
 
 with tab_kyushu:
     transformer = get_transformer("熊本県", "")
-    scaler = MinMaxScaler((0, IMAGE_SIZE))
 
-    island_contours = get_island_contour("九州", transformer)
+    island_contours = (get_island_contour("九州", transformer),)
     station_locations = get_station_locations_in_area("九州", transformer)
 
-    island_contours, station_locations = normalize(island_contours, station_locations)
-    show_plot([
-        (island_contours[:, 0], island_contours[:, 1]),
-        (station_locations[:, 0], station_locations[:, 1])])
-        
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
+
     voronoi(station_locations, island_contours)
     distance_transform(station_locations, island_contours)
 
@@ -162,5 +170,10 @@ with tab_4islands:
     transformer = get_transformer("東京都", "")
 
     island_contours = get_main_islands_contours(transformer)
-    show_plot([
-        (island_contours[:, 0], island_contours[:, 1]),])
+    station_locations = get_station_locations_in_area("全国", transformer)
+
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
+
+    voronoi(station_locations, island_contours)
+    distance_transform(station_locations, island_contours)
