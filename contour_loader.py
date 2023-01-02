@@ -20,11 +20,11 @@ def get_pref_contour(pref_name: str, transformer: Transformer) -> npt.NDArray[np
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in longest])
 
 
-def get_island_contour(name: str, transformer: Transformer) -> npt.NDArray[np.float64]:
+def get_area_contour(name: str, transformer: Transformer) -> npt.NDArray[np.float64]:
     with open("geojson/pref.geojson", encoding="utf-8-sig") as file:
         gj = json.load(file)
 
-    shapes = _collect_island_shapes(name, gj)
+    shapes = _collect_area_shapes(name, gj)
     merged_shape = next(shapes)
     for s in shapes:
         merged_shape = merged_shape.union(s)
@@ -36,13 +36,13 @@ def get_island_contour(name: str, transformer: Transformer) -> npt.NDArray[np.fl
 
 def get_main_islands_contours(transformer: Transformer) -> tuple[npt.NDArray[np.float64], ...]:
     return (
-        get_island_contour("北海道", transformer),
-        get_island_contour("本州", transformer),
-        get_island_contour("四国", transformer),
-        get_island_contour("九州", transformer))
+        get_area_contour("北海道", transformer),
+        get_area_contour("本州", transformer),
+        get_area_contour("四国", transformer),
+        get_area_contour("九州", transformer))
 
 
-def _collect_island_shapes(name: str, gj: dict[str, Any]) -> Iterable[shapely.geometry.shape]:
+def _collect_area_shapes(name: str, gj: dict[str, Any]) -> Iterable[shapely.geometry.shape]:
     def get_indices(name: str) -> list[int]:
         match name:
             case "北海道":
@@ -53,10 +53,12 @@ def _collect_island_shapes(name: str, gj: dict[str, Any]) -> Iterable[shapely.ge
                 return list(range(35, 39))
             case "九州":
                 return list(range(39, 46))
+            case "関東":
+                return list(range(7, 14))
             case "沖縄本島":
                 return [46]
             case _:
-                raise ValueError(f"Not supported island name: {name}")
+                raise ValueError(f"Not supported area name: {name}")
 
     return (shapely.geometry.shape(gj['features'][i]['geometry']) for i in get_indices(name))
 

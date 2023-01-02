@@ -6,8 +6,8 @@ import numpy as np
 import numpy.typing as npt
 from collections import deque
 from typing import Any, Iterable
-from contour_loader import get_pref_contour, get_island_contour, get_main_islands_contours
-from station_loader import get_station_locations_in_area
+from contour_loader import get_area_contour, get_main_islands_contours
+from station_loader import get_station_locations, get_station_locations_in_area
 from transformers import get_transformer
 
 IMAGE_SIZE = 2000
@@ -112,13 +112,13 @@ def distance_transform(
     st.image(dist_u8, channels="BGR", caption="distance")
 
 
-tab_hokkaido, tab_honshu, tab_shikoku, tab_kyushu, tab_4islands = st.tabs(("北海道", "本州", "四国", "九州", "全国"))
+tab_hokkaido, tab_honshu, tab_shikoku, tab_kyushu, tab_kanto, tab_4islands = st.tabs(("北海道", "本州", "四国", "九州", "関東", "四島"))
 
 with tab_hokkaido:
     transformer = get_transformer("北海道", "")
 
-    island_contours = (get_pref_contour("北海道", transformer),)
-    station_locations = get_station_locations_in_area("北海道", transformer)
+    island_contours = (get_area_contour("北海道", transformer),)
+    station_locations = get_station_locations("北海道", transformer)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -130,8 +130,8 @@ with tab_hokkaido:
 with tab_honshu:
     transformer = get_transformer("長野県", "")
 
-    island_contours = (get_island_contour("本州", transformer),)
-    station_locations = get_station_locations_in_area("本州", transformer)
+    island_contours = (get_area_contour("本州", transformer),)
+    station_locations = get_station_locations("本州", transformer)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -143,8 +143,8 @@ with tab_honshu:
 with tab_shikoku:
     transformer = get_transformer("高知県", "")
 
-    island_contours = (get_island_contour("四国", transformer),)
-    station_locations = get_station_locations_in_area("四国", transformer)
+    island_contours = (get_area_contour("四国", transformer),)
+    station_locations = get_station_locations("四国", transformer)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -156,8 +156,21 @@ with tab_shikoku:
 with tab_kyushu:
     transformer = get_transformer("熊本県", "")
 
-    island_contours = (get_island_contour("九州", transformer),)
-    station_locations = get_station_locations_in_area("九州", transformer)
+    island_contours = (get_area_contour("九州", transformer),)
+    station_locations = get_station_locations("九州", transformer)
+
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
+
+    voronoi(station_locations, island_contours)
+    distance_transform(station_locations, island_contours)
+
+
+with tab_kanto:
+    transformer = get_transformer("東京都", "")
+
+    island_contours = (get_area_contour("関東", transformer),)
+    station_locations = get_station_locations_in_area("関東", transformer, island_contours[0])
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -170,7 +183,7 @@ with tab_4islands:
     transformer = get_transformer("東京都", "")
 
     island_contours = get_main_islands_contours(transformer)
-    station_locations = get_station_locations_in_area("全国", transformer)
+    station_locations = get_station_locations("全国", transformer)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
