@@ -27,8 +27,7 @@ def get_station_locations_in_area(
     area_contour: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
     transformed = get_station_locations(area_name, transformer)
-    print(area_contour[0:2])
-    inside_points = [cv2.pointPolygonTest(area_contour.astype(np.float32), p, measureDist=False) >= 0 for p in transformed]
+    inside_points = [p for p in transformed if cv2.pointPolygonTest(area_contour.astype(np.float32), p, measureDist=False) >= 0]
     return np.array(inside_points)
 
 
