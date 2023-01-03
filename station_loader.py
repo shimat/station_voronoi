@@ -1,33 +1,32 @@
 import csv
+import re
+from pathlib import Path
+from typing import Iterable
+
+import cv2
 import numpy as np
 import numpy.typing as npt
-import re
-import cv2
-from typing import Iterable
-from pathlib import Path
 from pyproj import Transformer
 
 
-def get_station_locations(
-    area_name: str,
-    transformer: Transformer
-) -> npt.NDArray[np.float64]:
+def get_station_locations(area_name: str, transformer: Transformer) -> npt.NDArray[np.float64]:
     paths = tuple(_find_csv_files_in_island(area_name))
     if not paths:
         raise ValueError(f"Not supported area_name name: {area_name}")
 
-    target = np.vstack(
-        tuple(_load_station_csv(str(csv_path)) for csv_path in paths))
+    target = np.vstack(tuple(_load_station_csv(str(csv_path)) for csv_path in paths))
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in target])
 
 
 def get_station_locations_in_area(
-    area_name: str,
-    transformer: Transformer,
-    area_contour: npt.NDArray[np.float64]
+    area_name: str, transformer: Transformer, area_contours: tuple[npt.NDArray[np.float64], ...]
 ) -> npt.NDArray[np.float64]:
-    transformed = get_station_locations(area_name, transformer)
-    inside_points = [p for p in transformed if cv2.pointPolygonTest(area_contour.astype(np.float32), p, measureDist=False) >= 0]
+    station_locations = get_station_locations(area_name, transformer)
+    inside_points = [
+        p
+        for p in station_locations
+        if any(cv2.pointPolygonTest(contour.astype(np.float32), p, measureDist=False) >= 0 for contour in area_contours)
+    ]
     return np.array(inside_points)
 
 
@@ -52,9 +51,23 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
         case "四国":
             return filter(lambda p: re.search(r"^四国.+|^阿佐海岸.+|^土佐.+|^伊予.+|^高松琴平.+", p.name), paths)
         case "九州":
-            return filter(lambda p: re.search(r"^九州.*|^西日本鉄道.+|^熊本.+|^南阿蘇.+|^平成筑豊.+|^島原.+|^肥薩.+|^くま川.+|^甘木.+|^松浦.+", p.name), paths)
-        case "関東":
-            return filter(lambda p: re.search(r"^西武.+|^東武.+|^東日本旅客鉄道(山手線|東海道線|南武線|横浜線|相模線|横須賀線|鶴見線|総武本線|内房線|外房線|久留里線|成田線|中央本線|常磐線|東北本線|高崎線|両毛線|上越線|吾妻線|信越本線).+|御殿場線|^東急.+|^京急.+", p.name), paths)
+            return filter(
+                lambda p: re.search(r"^九州.*|^西日本鉄道.+|^熊本.+|^南阿蘇.+|^平成筑豊.+|^島原.+|^肥薩.+|^くま川.+|^甘木.+|^松浦.+", p.name),
+                paths,
+            )
+        case "東京23区":
+            return filter(
+                lambda p: re.search(
+                    r"^東日本旅客鉄道(山手線|東海道線|南武線|京浜東北線|赤羽線|埼京線|総武本線|京葉線|中央本線|常磐線|東北本線).+|^東京.+|^京王.+|^小田急.+|^東急.+|^京浜急行.+|ゆりかもめ.+|首都圏.+|^西武.+|^東武.+|^京成.+",
+                    p.name,
+                ),
+                paths,
+            )
+        case "大阪市":
+            return filter(
+                lambda p: re.search(r"^西日本旅客鉄道.+|^北?大阪.+|^京阪.+|^阪神.+|^阪急.+|^南海.+|^近畿.+", p.name),
+                paths,
+            )
         case "沖縄本島":
             raise ValueError(f"Not supported island name: {island_name}")
         case _:
