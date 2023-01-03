@@ -6,22 +6,24 @@ from typing import Iterable
 import cv2
 import numpy as np
 import numpy.typing as npt
-from pyproj import Transformer
+
+from transformers import get_transformer
 
 
-def get_station_locations(area_name: str, transformer: Transformer) -> npt.NDArray[np.float64]:
+def get_station_locations(area_name: str, transformer_pref: str) -> npt.NDArray[np.float64]:
     paths = tuple(_find_csv_files_in_island(area_name))
     if not paths:
         raise ValueError(f"Not supported area_name name: {area_name}")
 
     target = np.vstack(tuple(_load_station_csv(str(csv_path)) for csv_path in paths))
+    transformer = get_transformer(transformer_pref, "")
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in target])
 
 
 def get_station_locations_in_area(
-    area_name: str, transformer: Transformer, area_contours: tuple[npt.NDArray[np.float64], ...]
+    area_name: str, transformer_pref: str, area_contours: tuple[npt.NDArray[np.float64], ...]
 ) -> npt.NDArray[np.float64]:
-    station_locations = get_station_locations(area_name, transformer)
+    station_locations = get_station_locations(area_name, transformer_pref)
     inside_points = [
         p
         for p in station_locations
@@ -42,10 +44,10 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
         case "全国":
             return paths
         case "北海道":
-            return filter(lambda p: re.search(r"^北海道.+|^道南.+", p.name), paths)
+            return filter(lambda p: re.search(r"^北海道.+|^道南.+|^札幌.+|^函館.+", p.name), paths)
         case "本州":
             ret = set(paths)
-            for n in ("北海道", "四国", "九州"):
+            for n in ("北海道", "四国", "九州", "沖縄本島"):
                 ret -= set(_find_csv_files_in_island(n))
             return ret
         case "四国":
@@ -58,7 +60,8 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
         case "東京23区":
             return filter(
                 lambda p: re.search(
-                    r"^東日本旅客鉄道(山手線|東海道線|南武線|京浜東北線|赤羽線|埼京線|総武本線|京葉線|中央本線|常磐線|東北本線).+|^東京.+|^京王.+|^小田急.+|^東急.+|^京浜急行.+|ゆりかもめ.+|首都圏.+|^西武.+|^東武.+|^京成.+",
+                    r"^東日本旅客鉄道(山手線|東海道線|南武線|京浜東北線|赤羽線|埼京線|総武本線|京葉線|中央本線|常磐線|東北本線).+|" +
+                    r"^東京.+|^京王.+|^小田急.+|^東急.+|^京浜急行.+|^ゆりかもめ.+|^首都圏.+|^西武.+|^東武.+|^京成.+",
                     p.name,
                 ),
                 paths,
@@ -69,7 +72,7 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
                 paths,
             )
         case "沖縄本島":
-            raise ValueError(f"Not supported island name: {island_name}")
+            return filter(lambda p: re.search(r"^沖縄.+", p.name), paths)
         case _:
             raise ValueError(f"Not supported island name: {island_name}")
 

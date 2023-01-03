@@ -13,9 +13,9 @@ from contour_loader import (
     get_area_contour,
     get_area_contours_from_prefecture,
     get_main_islands_contours,
+    get_pref_contour,
 )
 from station_loader import get_station_locations, get_station_locations_in_area
-from transformers import get_transformer
 
 IMAGE_SIZE = 2000
 
@@ -125,15 +125,16 @@ def distance_transform(
     st.image(dist_u8, channels="BGR", caption="distance")
 
 
-tab_hokkaido, tab_honshu, tab_shikoku, tab_kyushu, tab_tokyo, tab_osaka, tab_4islands = st.tabs(
-    ("北海道", "本州", "四国", "九州", "東京23区", "大阪市", "四島")
+st.set_page_config(page_title="駅からの距離")
+st.title("")
+
+tab_hokkaido, tab_honshu, tab_shikoku, tab_kyushu, tab_okinawa, tab_tokyo, tab_osaka, tab_main_islands = st.tabs(
+    ("北海道", "本州", "四国", "九州", "沖縄本島", "東京23区", "大阪市", "全国")
 )
 
 with tab_hokkaido:
-    transformer = get_transformer("北海道", "")
-
-    island_contours = (get_area_contour("北海道", transformer),)
-    station_locations = get_station_locations("北海道", transformer)
+    island_contours = (get_area_contour("北海道", "北海道"),)
+    station_locations = get_station_locations("北海道", "北海道")
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -143,10 +144,8 @@ with tab_hokkaido:
 
 
 with tab_honshu:
-    transformer = get_transformer("長野県", "")
-
-    island_contours = (get_area_contour("本州", transformer),)
-    station_locations = get_station_locations("本州", transformer)
+    island_contours = (get_area_contour("本州", "長野県"),)
+    station_locations = get_station_locations("本州", "長野県")
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -156,10 +155,8 @@ with tab_honshu:
 
 
 with tab_shikoku:
-    transformer = get_transformer("高知県", "")
-
-    island_contours = (get_area_contour("四国", transformer),)
-    station_locations = get_station_locations("四国", transformer)
+    island_contours = (get_area_contour("四国", "高知県"),)
+    station_locations = get_station_locations("四国", "高知県")
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -169,10 +166,19 @@ with tab_shikoku:
 
 
 with tab_kyushu:
-    transformer = get_transformer("熊本県", "")
+    island_contours = (get_area_contour("九州", "熊本県"),)
+    station_locations = get_station_locations("九州", "熊本県")
 
-    island_contours = (get_area_contour("九州", transformer),)
-    station_locations = get_station_locations("九州", transformer)
+    island_contours, station_locations = normalize(station_locations, island_contours)
+    show_islands_and_stations(station_locations, island_contours)
+
+    voronoi(station_locations, island_contours)
+    distance_transform(station_locations, island_contours)
+
+
+with tab_okinawa:
+    island_contours = (get_pref_contour("沖縄県", "沖縄県"),)
+    station_locations = get_station_locations("沖縄本島", "沖縄県")
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -182,10 +188,8 @@ with tab_kyushu:
 
 
 with tab_tokyo:
-    transformer = get_transformer("東京都", "")
-
-    island_contours = get_area_contours_from_prefecture("東京都", re.compile(r"区$"), transformer)
-    station_locations = get_station_locations_in_area("東京23区", transformer, island_contours)
+    island_contours = get_area_contours_from_prefecture("東京都", re.compile(r"区$"), "東京都")
+    station_locations = get_station_locations_in_area("東京23区", "東京都", island_contours)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -195,10 +199,8 @@ with tab_tokyo:
 
 
 with tab_osaka:
-    transformer = get_transformer("大阪府", "")
-
-    island_contours = get_area_contours_from_prefecture("大阪府", re.compile(r"^大阪府大阪市"), transformer)
-    station_locations = get_station_locations_in_area("大阪市", transformer, island_contours)
+    island_contours = get_area_contours_from_prefecture("大阪府", re.compile(r"^大阪府大阪市"), "大阪府")
+    station_locations = get_station_locations_in_area("大阪市", "大阪府", island_contours)
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)
@@ -207,11 +209,9 @@ with tab_osaka:
     distance_transform(station_locations, island_contours)
 
 
-with tab_4islands:
-    transformer = get_transformer("東京都", "")
-
-    island_contours = get_main_islands_contours(transformer)
-    station_locations = get_station_locations("全国", transformer)
+with tab_main_islands:
+    island_contours = get_main_islands_contours()
+    station_locations = get_station_locations("全国", "東京都")
 
     island_contours, station_locations = normalize(station_locations, island_contours)
     show_islands_and_stations(station_locations, island_contours)

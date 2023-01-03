@@ -1,3 +1,4 @@
+import streamlit as st
 from pyproj import Transformer
 
 WGS84 = 4326
@@ -45,6 +46,7 @@ NUMBER_17_CITIES = {
 }
 
 
+@st.experimental_memo
 def get_transformer(pref: str, city: str) -> Transformer:
     """
     自治体名から、使うべきpyproj.Transformerを返す

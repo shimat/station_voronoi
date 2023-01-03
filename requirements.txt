@@ -1,6 +1,5 @@
 opencv-python-headless==4.7.0.68
 streamlit==1.16.0
-scikit-learn==1.2.0
 matplotlib==3.6.2
 pyproj==3.4.1
 shapely==2.0.0
