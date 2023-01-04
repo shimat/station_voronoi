@@ -6,36 +6,50 @@ from typing import Iterable
 import cv2
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
+import streamlit as st
+from pyproj import Transformer
 
 from transformers import get_transformer
 
 
-def get_station_locations(area_name: str, transformer_pref: str) -> npt.NDArray[np.float64]:
+# @st.experimental_memo
+def get_station_locations(area_name: str, transformer_pref: str) -> tuple[pd.DataFrame, Transformer]:
+    def map_row(row: pd.Series):
+        lat, lon = transformer.transform(row["lat"], row["lon"])
+        return {"name": row["name"], "lon": lon, "lat": lat}
+
     paths = tuple(_find_csv_files_in_island(area_name))
     if not paths:
         raise ValueError(f"Not supported area_name name: {area_name}")
 
-    target = np.vstack(tuple(_load_station_csv(str(csv_path)) for csv_path in paths))
+    lonlat = pd.concat(_load_station_csv(str(csv_path)) for csv_path in paths)
     transformer = get_transformer(transformer_pref, "")
-    return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in target])
+    result = lonlat.apply(map_row, axis=1, result_type="expand")
+    return result, transformer
 
 
 def get_station_locations_in_area(
-    area_name: str, transformer_pref: str, area_contours: tuple[npt.NDArray[np.float64], ...]
-) -> npt.NDArray[np.float64]:
-    station_locations = get_station_locations(area_name, transformer_pref)
-    inside_points = [
-        p
-        for p in station_locations
-        if any(cv2.pointPolygonTest(contour.astype(np.float32), p, measureDist=False) >= 0 for contour in area_contours)
-    ]
-    return np.array(inside_points)
+    area_name: str, transformer_pref: str, area_contours: tuple[npt.NDArray, ...]
+) -> tuple[pd.DataFrame, Transformer]:
+    df, transformer = get_station_locations(area_name, transformer_pref)
+    # inside = df[ cv2.pointPolygonTest( (df["lat"], df["lon"]), measureDist=False) >= 0 ]
+    st.write(df[("lat", "lon")].values)
+    # inside_points = [
+    #    p
+    #    for p in station_locations
+    #    if any(
+    #        cv2.pointPolygonTest(contour.astype(np.float32), (p[1], p[2]), measureDist=False) >= 0
+    #        for contour in area_contours
+    #    )
+    # ]
+    # return np.array(inside_points), transformer
 
 
-def _load_station_csv(file_name: str) -> npt.NDArray[np.float64]:
-    with open(file_name, "r", encoding="utf-8-sig", newline="") as file:
-        csv_reader = csv.reader(file)
-        return np.array([(float(row[1]), float(row[2])) for row in csv_reader if not row[0].startswith("#")])
+def _load_station_csv(file_name: str) -> pd.DataFrame:
+    df = pd.read_csv(file_name, encoding="utf-8-sig", names=("name", "lon", "lat"))
+    df = df[df["name"].str.match("(?!#)")]
+    return df
 
 
 def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
@@ -60,8 +74,8 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
         case "東京23区":
             return filter(
                 lambda p: re.search(
-                    r"^東日本旅客鉄道(山手線|東海道線|南武線|京浜東北線|赤羽線|埼京線|総武本線|京葉線|中央本線|常磐線|東北本線).+|" +
-                    r"^東京.+|^京王.+|^小田急.+|^東急.+|^京浜急行.+|^ゆりかもめ.+|^首都圏.+|^西武.+|^東武.+|^京成.+",
+                    r"^東日本旅客鉄道(山手線|東海道線|南武線|京浜東北線|赤羽線|埼京線|総武本線|京葉線|中央本線|常磐線|東北本線).+|"
+                    + r"^東京.+|^京王.+|^小田急.+|^東急.+|^京浜急行.+|^ゆりかもめ.+|^首都圏.+|^西武.+|^東武.+|^京成.+",
                     p.name,
                 ),
                 paths,

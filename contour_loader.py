@@ -4,6 +4,7 @@ import json
 import re
 from typing import Any, Iterable
 
+import more_itertools
 import numpy as np
 import numpy.typing as npt
 import shapely.geometry
@@ -16,7 +17,7 @@ def get_pref_contour(pref_name: str, transformer_pref: str) -> npt.NDArray[np.fl
     with open("geojson/prefectures.geojson", encoding="utf-8-sig") as file:
         geojson = json.load(file)
 
-    feature = _first_true(geojson["features"], lambda f: f["properties"]["name"] == pref_name)
+    feature = more_itertools.first_true(geojson["features"], lambda f: f["properties"]["name"] == pref_name)
     if not feature:
         raise KeyError(f"{pref_name} not found")
 
@@ -26,7 +27,7 @@ def get_pref_contour(pref_name: str, transformer_pref: str) -> npt.NDArray[np.fl
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in longest])
 
 
-@st.experimental_memo
+# @st.experimental_memo
 def get_area_contour(name: str, transformer_pref: str) -> npt.NDArray[np.float64]:
     with open("geojson/prefectures.geojson", encoding="utf-8-sig") as file:
         gj = json.load(file)
@@ -51,7 +52,7 @@ def get_main_islands_contours() -> tuple[npt.NDArray[np.float64], ...]:
     )
 
 
-@st.experimental_memo
+# @st.experimental_memo
 def get_area_contours_from_prefecture(
     pref_name: str, pattern: re.Pattern, transformer_pref: str
 ) -> tuple[npt.NDArray[np.float64], ...]:
@@ -93,7 +94,3 @@ def _collect_area_shapes(name: str, gj: dict[str, Any]) -> Iterable[shapely.geom
                 raise ValueError(f"Not supported area name: {name}")
 
     return (shapely.geometry.shape(gj["features"][i]["geometry"]) for i in get_indices(name))
-
-
-def _first_true(iterable, pred):
-    return next(filter(pred, iterable), None)
