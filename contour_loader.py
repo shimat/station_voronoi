@@ -27,7 +27,7 @@ def get_pref_contour(pref_name: str, transformer_pref: str) -> npt.NDArray[np.fl
     return np.array([transformer.transform(lat, lon)[::-1] for lon, lat in longest])
 
 
-# @st.experimental_memo
+@st.experimental_memo
 def get_area_contour(name: str, transformer_pref: str) -> npt.NDArray[np.float64]:
     with open("geojson/prefectures.geojson", encoding="utf-8-sig") as file:
         gj = json.load(file)
@@ -52,7 +52,7 @@ def get_main_islands_contours() -> tuple[npt.NDArray[np.float64], ...]:
     )
 
 
-# @st.experimental_memo
+@st.experimental_memo
 def get_area_contours_from_prefecture(
     pref_name: str, pattern: re.Pattern, transformer_pref: str
 ) -> tuple[npt.NDArray[np.float64], ...]:

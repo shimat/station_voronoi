@@ -1,5 +1,5 @@
-import csv
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -13,8 +13,15 @@ from pyproj import Transformer
 from transformers import get_transformer
 
 
-# @st.experimental_memo
-def get_station_locations(area_name: str, transformer_pref: str) -> tuple[pd.DataFrame, Transformer]:
+@dataclass
+class StationLocations:
+    lonlat: pd.DataFrame
+    utm: pd.DataFrame
+    transformer: Transformer
+
+
+@st.experimental_memo
+def get_station_locations(area_name: str, transformer_pref: str) -> StationLocations:
     def map_row(row: pd.Series):
         lat, lon = transformer.transform(row["lat"], row["lon"])
         return {"name": row["name"], "lon": lon, "lat": lat}
@@ -25,15 +32,15 @@ def get_station_locations(area_name: str, transformer_pref: str) -> tuple[pd.Dat
 
     lonlat = pd.concat(_load_station_csv(str(csv_path)) for csv_path in paths)
     transformer = get_transformer(transformer_pref, "")
-    result = lonlat.apply(map_row, axis=1, result_type="expand")
-    return result, transformer
+    utm = lonlat.apply(map_row, axis=1, result_type="expand")
+    return StationLocations(lonlat=lonlat, utm=utm, transformer=transformer)
 
 
 def get_station_locations_in_area(
     area_name: str, transformer_pref: str, area_contours: tuple[npt.NDArray, ...]
-) -> tuple[pd.DataFrame, Transformer]:
-    station_df, transformer = get_station_locations(area_name, transformer_pref)
-    locations = station_df[["lon", "lat"]].values
+) -> StationLocations:
+    stations = get_station_locations(area_name, transformer_pref)
+    locations = stations.utm[["lon", "lat"]].values
     inside_points_indices = [
         i
         for i, p in enumerate(locations)
@@ -41,8 +48,12 @@ def get_station_locations_in_area(
             cv2.pointPolygonTest(contour.astype(np.float32), (p[0], p[1]), measureDist=False) >= 0
             for contour in area_contours
         )
-    ]    
-    return station_df.iloc[inside_points_indices, :], transformer
+    ]
+    return StationLocations(
+        lonlat=stations.lonlat.iloc[inside_points_indices, :],
+        utm=stations.utm.iloc[inside_points_indices, :],
+        transformer=stations.transformer,
+    )
 
 
 def _load_station_csv(file_name: str) -> pd.DataFrame:
@@ -67,7 +78,9 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
             return filter(lambda p: re.search(r"^四国.+|^阿佐海岸.+|^土佐.+|^伊予.+|^高松琴平.+", p.name), paths)
         case "九州":
             return filter(
-                lambda p: re.search(r"^九州.*|^西日本鉄道.+|^熊本.+|^南阿蘇.+|^平成筑豊.+|^島原.+|^肥薩.+|^くま川.+|^甘木.+|^松浦.+", p.name),
+                lambda p: re.search(
+                    r"^九州.*|^西日本鉄道.+|^熊本.+|^南阿蘇.+|^平成筑豊.+|^島原.+|^肥薩.+|^くま川.+|^甘木.+|^松浦.+|^福岡.+|^北九州.+", p.name
+                ),
                 paths,
             )
         case "東京23区":
@@ -81,7 +94,7 @@ def _find_csv_files_in_island(island_name: str) -> Iterable[Path]:
             )
         case "大阪市":
             return filter(
-                lambda p: re.search(r"^西日本旅客鉄道.+|^北?大阪.+|^京阪.+|^阪神.+|^阪急.+|^南海.+|^近畿.+", p.name),
+                lambda p: re.search(r"^西日本旅客鉄道.+|^北?大阪.+|^京阪.+|^阪神.+|^阪急.+|^南海.+|^近畿.+|^阪堺.+", p.name),
                 paths,
             )
         case "沖縄本島":
