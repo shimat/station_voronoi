@@ -22,7 +22,7 @@ from contour_loader import (
 from station_loader import get_station_locations, get_station_locations_in_area
 
 IMAGE_SIZE = 2000
-DEBUG = True
+DEBUG = False
 
 
 @dataclass(frozen=True)
@@ -200,6 +200,7 @@ def show_distance_transform(
 def show_informations(
     station_df: pd.DataFrame,
     farthest_point: FarthestPoint,
+    nearest_station_location
 ) -> None:
 
     lon, lat = farthest_point.lonlat
@@ -227,6 +228,7 @@ TRANSFORMER_PREF_MAP = {"北海道": "北海道", "本州": "長野県", "四国
 tab_names = ("北海道", "本州", "四国", "九州", "沖縄本島", "東京23区", "大阪市", "全国")
 tabs = dict(zip(tab_names, st.tabs(tab_names)))
 
+
 for area_name in ("北海道", "本州", "四国", "九州", "沖縄本島"):
     with tabs[area_name]:
         transformer_pref = TRANSFORMER_PREF_MAP[area_name]
@@ -234,13 +236,13 @@ for area_name in ("北海道", "本州", "四国", "九州", "沖縄本島"):
         station_df, transformer = get_station_locations(area_name, transformer_pref)
 
         island_contours, station_df, scaling_parameters = normalize(station_df, island_contours)
-        # if DEBUG:
-        #    show_stations_and_islands(station_df, island_contours)
+        if DEBUG:
+            show_stations_and_islands(station_df, island_contours)
 
         dist, farthest_point = run_distance_transform(station_df, island_contours, transformer, scaling_parameters)
         facets, centers, nearest_station_location = get_voronoi_division(station_df)
 
-        show_informations(station_df, farthest_point)
+        show_informations(station_df, farthest_point, nearest_station_location)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -248,20 +250,29 @@ for area_name in ("北海道", "本州", "四国", "九州", "沖縄本島"):
         with col2:
             show_voronoi(facets, centers, island_contours, nearest_station_location)
 
+
+for area_name in ("東京23区",):
+    with tabs[area_name]:
+        island_contours = get_area_contours_from_prefecture("東京都", re.compile(r"区$"), "東京都")
+        station_df, transformer = get_station_locations_in_area("東京23区", "東京都", island_contours)
+
+        island_contours, station_df, scaling_parameters = normalize(station_df, island_contours)
+        if DEBUG:
+            show_stations_and_islands(station_df, island_contours)
+
+        dist, farthest_point = run_distance_transform(station_df, island_contours, transformer, scaling_parameters)
+        facets, centers, nearest_station_location = get_voronoi_division(station_df)
+
+        show_informations(station_df, farthest_point, nearest_station_location)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            show_distance_transform(dist, farthest_point)
+        with col2:
+            show_voronoi(facets, centers, island_contours, nearest_station_location)
+
+
 """
-
-with tab_tokyo:
-    island_contours = get_area_contours_from_prefecture("東京都", re.compile(r"区$"), "東京都")
-    station_locations, transformer = get_station_locations_in_area("東京23区", "東京都", island_contours)
-
-    island_contours, station_locations, scaling_parameters = normalize(station_locations, island_contours)
-    if DEBUG:
-        show_islands_and_stations(station_locations, island_contours)
-
-    voronoi(station_locations, island_contours)
-    distance_transform(station_locations, island_contours, transformer, scaling_parameters)
-
-
 with tab_osaka:
     island_contours = get_area_contours_from_prefecture("大阪府", re.compile(r"^大阪府大阪市"), "大阪府")
     station_locations, transformer = get_station_locations_in_area("大阪市", "大阪府", island_contours)

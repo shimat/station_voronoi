@@ -32,18 +32,17 @@ def get_station_locations(area_name: str, transformer_pref: str) -> tuple[pd.Dat
 def get_station_locations_in_area(
     area_name: str, transformer_pref: str, area_contours: tuple[npt.NDArray, ...]
 ) -> tuple[pd.DataFrame, Transformer]:
-    df, transformer = get_station_locations(area_name, transformer_pref)
-    # inside = df[ cv2.pointPolygonTest( (df["lat"], df["lon"]), measureDist=False) >= 0 ]
-    st.write(df[("lat", "lon")].values)
-    # inside_points = [
-    #    p
-    #    for p in station_locations
-    #    if any(
-    #        cv2.pointPolygonTest(contour.astype(np.float32), (p[1], p[2]), measureDist=False) >= 0
-    #        for contour in area_contours
-    #    )
-    # ]
-    # return np.array(inside_points), transformer
+    station_df, transformer = get_station_locations(area_name, transformer_pref)
+    locations = station_df[["lon", "lat"]].values
+    inside_points_indices = [
+        i
+        for i, p in enumerate(locations)
+        if any(
+            cv2.pointPolygonTest(contour.astype(np.float32), (p[0], p[1]), measureDist=False) >= 0
+            for contour in area_contours
+        )
+    ]    
+    return station_df.iloc[inside_points_indices, :], transformer
 
 
 def _load_station_csv(file_name: str) -> pd.DataFrame:
