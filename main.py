@@ -8,13 +8,12 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import streamlit as st
-from pyproj import Geod, Transformer
+from pyproj import Geod
 
 from contour_loader import (
     get_area_contour,
     get_area_contours_from_prefecture,
     get_main_islands_contours,
-    get_pref_contour,
 )
 from distance_transform import run_distance_transform, show_distance_transform
 from models import FarthestPoint, ScalingParameters
@@ -196,3 +195,16 @@ with tabs["全国"]:
         show_distance_transform(dist, farthest_point)
     with col2:
         show_voronoi(facets, centers, island_contours, nearest_station_location, IMAGE_SIZE)
+
+
+st.markdown(
+    """
+-----
+
+利用データ:
++ 鉄道駅LOD: https://uedayou.net/jrslod/
++ Linked Open Addresses Japan: https://uedayou.net/loa/
++ 地図蔵 - 47都道府県のポリゴンデータ geojson: https://japonyol.net/editor/article/47-prefectures-geojson.html
+""",
+    unsafe_allow_html=True,
+)
